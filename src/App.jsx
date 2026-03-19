@@ -1,9 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, Eye, LayoutTemplate, LayoutPanelLeft, Zap, CheckCircle2, 
   ChevronDown, ArrowRight, Mail, Shield, Twitter, Linkedin, Github, MessageSquare, X
 } from 'lucide-react';
+
+const BACKEND_URL = 'https://flowmail-backend.onrender.com';
 
 // ─── Email Modal ────────────────────────────────────────────────────────────
 const EmailModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
@@ -612,7 +614,7 @@ const Footer = () => (
           </ul>
         </div>
         <div>
-          <h4 className="font-semibold mb-4 text-[15px]">Legal & Support</h4>
+          <h4 className="font-semibold mb-4 text-[15px]">Legal &amp; Support</h4>
           <ul className="space-y-3 text-[14px] text-textSecondary">
             <li><a href="#" className="hover:text-primary-600 transition-colors">Privacy Policy</a></li>
             <li><a href="#" className="hover:text-primary-600 transition-colors">Terms of Service</a></li>
@@ -629,56 +631,97 @@ const Footer = () => (
   </footer>
 );
 
+// ─── Main App ────────────────────────────────────────────────────────────────
 function App() {
-  const handleUpgrade = async () => {
-    let email = localStorage.getItem("userEmail")
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
-    if (!email) {
-      email = prompt("Enter your email")
-      if (email) {
-        localStorage.setItem("userEmail", email)
-      } else {
-        return // Cancel upgrade if no email provided
-      }
+  // On mount: read email from URL param (sent by the extension) and save to localStorage
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const emailFromUrl = params.get('email');
+    if (emailFromUrl) {
+      localStorage.setItem('userEmail', emailFromUrl);
     }
+  }, []);
 
-    const res = await fetch("https://flowmail-backend.onrender.com/create-subscription", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan_id: "plan_SSGZ7Jw3zsLohb" }),
-    })
+  const showToast = (message, type = 'success') => {
+    setToast({ visible: true, message, type });
+    setTimeout(() => setToast(t => ({ ...t, visible: false })), 4000);
+  };
 
-    const data = await res.json()
+  // ── Core payment trigger ───────────────────────────────────────────────────
+  const triggerPayment = useCallback(async (email) => {
+    setIsPaymentLoading(true);
+    setShowEmailModal(false);
 
-    const options = {
-      key: "rzp_test_SSGAU6rYyrzWpR",
-      subscription_id: data.id,
-      name: "FlowMail",
-      description: "Pro Plan",
-      handler: async function (response) {
-        console.log("PAYMENT SUCCESS", response)
-        const email = localStorage.getItem("userEmail")
-        console.log("EMAIL:", email)
+    try {
+      // Register user in Supabase before payment (safe even if already exists)
+      await fetch(`${BACKEND_URL}/create-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
 
-        await fetch("https://flowmail-backend.onrender.com/verify-payment", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: email,
-            payment_id: response.razorpay_payment_id,
-            plan: "pro",
-          }),
-        })
+      const res = await fetch(`${BACKEND_URL}/create-subscription`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_id: 'plan_SSGZ7Jw3zsLohb' }),
+      });
 
-        console.log("VERIFY SENT")
-        alert("Payment success")
-      },
+      const data = await res.json();
+
+      const options = {
+        key: 'rzp_test_SSGAU6rYyrzWpR',
+        subscription_id: data.id,
+        name: 'FlowMail',
+        description: 'Pro Plan',
+        prefill: {
+          email: email,   // ← pre-fill so Razorpay doesn't ask again
+        },
+        handler: async function (response) {
+          console.log('PAYMENT SUCCESS', response);
+
+          await fetch(`${BACKEND_URL}/verify-payment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email,
+              payment_id: response.razorpay_payment_id,
+              plan: 'pro',
+            }),
+          });
+
+          showToast('🎉 Payment successful! You are now on Pro.', 'success');
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      console.error('Payment error:', err);
+      showToast('Something went wrong. Please try again.', 'error');
+    } finally {
+      setIsPaymentLoading(false);
     }
+  }, []);
 
-    const rzp = new window.Razorpay(options);
-    rzp.open();
+  // ── handleUpgrade: called by every "Upgrade to Pro" button ────────────────
+  const handleUpgrade = useCallback(() => {
+    const savedEmail = localStorage.getItem('userEmail');
+    if (savedEmail) {
+      // Email already known — go straight to payment, no modal
+      triggerPayment(savedEmail);
+    } else {
+      // No email known — show the modal once
+      setShowEmailModal(true);
+    }
+  }, [triggerPayment]);
+
+  const handleModalConfirm = (email) => {
+    localStorage.setItem('userEmail', email);
+    triggerPayment(email);
   };
 
   return (
@@ -692,6 +735,16 @@ function App() {
       <Testimonials />
       <FAQ />
       <Footer />
+
+      {/* Email Modal — only shown if no email is known */}
+      <EmailModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        onConfirm={handleModalConfirm}
+        isLoading={isPaymentLoading}
+      />
+
+      <Toast {...toast} />
     </div>
   );
 }
