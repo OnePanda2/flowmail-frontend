@@ -154,7 +154,7 @@ const ExtensionMockup = () => (
 
 // --- Sections ---
 
-const Navbar = () => (
+const Navbar = ({ handleUpgrade }) => (
   <nav className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-borderLight/50">
     <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -736,7 +736,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background text-textPrimary">
-      <Navbar />
+      <Navbar handleUpgrade={handleUpgrade} />
       <Hero handleUpgrade={handleUpgrade} />
       <Features />
       <Showcase />
