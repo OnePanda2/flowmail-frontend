@@ -167,8 +167,8 @@ const Navbar = () => (
         <a href="#pricing" className="hover:text-primary-600 transition-colors">Pricing</a>
       </div>
       <div className="flex items-center gap-4">
-        <button className="text-[15px] font-medium hover:text-primary-600 transition-colors hidden md:block">Log in</button>
-        <button className="px-5 py-2.5 bg-primary-500 hover:bg-primary-700 text-white rounded-full text-[14px] font-medium transition-all shadow-[0_2px_10px_rgba(168,131,101,0.2)] hover:shadow-[0_4px_15px_rgba(168,131,101,0.3)] hover:-translate-y-0.5">
+        <button onClick={handleUpgrade} className="text-[15px] font-medium hover:text-primary-600 transition-colors hidden md:block">Log in</button>
+        <button onClick={() => window.open('https://chrome.google.com/webstore', '_blank')} className="px-5 py-2.5 bg-primary-500 hover:bg-primary-700 text-white rounded-full text-[14px] font-medium transition-all shadow-[0_2px_10px_rgba(168,131,101,0.2)] hover:shadow-[0_4px_15px_rgba(168,131,101,0.3)] hover:-translate-y-0.5">
           Get Extension
         </button>
       </div>
@@ -201,7 +201,7 @@ const Hero = ({ handleUpgrade }) => (
           AI replies, email tracking, and smart templates magically integrated inside your Gmail. Say goodbye to email anxiety.
         </p>
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          <button className="w-full sm:w-auto px-8 py-3.5 bg-primary-500 hover:bg-primary-700 text-white rounded-full text-[15px] font-medium transition-all shadow-[0_4px_15px_rgba(168,131,101,0.25)] hover:shadow-[0_6px_20px_rgba(168,131,101,0.35)] hover:-translate-y-0.5 flex items-center justify-center gap-2">
+          <button onClick={() => window.open('https://chrome.google.com/webstore', '_blank')} className="w-full sm:w-auto px-8 py-3.5 bg-primary-500 hover:bg-primary-700 text-white rounded-full text-[15px] font-medium transition-all shadow-[0_4px_15px_rgba(168,131,101,0.25)] hover:shadow-[0_6px_20px_rgba(168,131,101,0.35)] hover:-translate-y-0.5 flex items-center justify-center gap-2">
             Install Extension
             <ArrowRight className="w-4 h-4" />
           </button>
@@ -432,8 +432,8 @@ const Pricing = ({ handleUpgrade }) => (
             <li className="flex items-center gap-3 text-[15px]"><CheckCircle2 className="w-4 h-4 text-green-500" /> Basic Email Tracking</li>
             <li className="flex items-center gap-3 text-[15px]"><CheckCircle2 className="w-4 h-4 text-green-500" /> 3 Smart Templates</li>
           </ul>
-          <button className="w-full py-3 bg-white border border-borderLight text-textPrimary hover:bg-gray-50 rounded-[16px] font-medium transition-colors">
-            Get Started
+          <button onClick={() => window.open('https://chrome.google.com/webstore', '_blank')} className="w-full py-3 bg-white border border-borderLight text-textPrimary hover:bg-gray-50 rounded-[16px] font-medium transition-colors">
+            Install Extension
           </button>
         </div>
 
@@ -476,7 +476,7 @@ const Pricing = ({ handleUpgrade }) => (
             <li className="flex items-center gap-3 text-[15px]"><CheckCircle2 className="w-4 h-4 text-green-500" /> Team Analytics</li>
             <li className="flex items-center gap-3 text-[15px]"><CheckCircle2 className="w-4 h-4 text-green-500" /> Custom API access</li>
           </ul>
-          <button className="w-full py-3 bg-white border border-borderLight text-textPrimary hover:bg-gray-50 rounded-[16px] font-medium transition-colors">
+          <button onClick={() => window.location.href = "mailto:sales@flowmail.com"} className="w-full py-3 bg-white border border-borderLight text-textPrimary hover:bg-gray-50 rounded-[16px] font-medium transition-colors">
             Contact Sales
           </button>
         </div>
@@ -643,6 +643,13 @@ function App() {
     const emailFromUrl = params.get('email');
     if (emailFromUrl) {
       localStorage.setItem('userEmail', emailFromUrl);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // Attempt to sync email to extension if we have it locally
+    const savedEmail = localStorage.getItem('userEmail');
+    if (savedEmail) {
+      window.postMessage({ type: 'FLOWMAIL_SYNC', email: savedEmail }, '*');
     }
   }, []);
 
@@ -692,6 +699,9 @@ function App() {
               plan: 'pro',
             }),
           });
+
+          // Sync pro status to extension
+          window.postMessage({ type: 'FLOWMAIL_SYNC', email: email, isPaid: true }, '*');
 
           showToast('🎉 Payment successful! You are now on Pro.', 'success');
         },
