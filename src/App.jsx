@@ -674,13 +674,13 @@ function App() {
       const res = await fetch(`${BACKEND_URL}/create-subscription`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_id: 'plan_SSGZ7Jw3zsLohb' }),
+        body: JSON.stringify({ plan_id: 'plan_SSFOI7iDnoSQwH' }),
       });
 
       const data = await res.json();
 
       const options = {
-        key: 'rzp_test_SSGAU6rYyrzWpR',
+        key: 'rzp_live_SSFrfyJSG3ZRm9',
         subscription_id: data.id,
         name: 'FlowMail',
         description: 'Pro Plan',
